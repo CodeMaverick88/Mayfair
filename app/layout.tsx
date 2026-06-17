@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import Navbar from "@/components/Navbar";
+import Footer from "@/components/Footer"; // Importing the new Footer
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -29,10 +31,18 @@ export default function RootLayout({
       style={{ backgroundColor: "#000000" }}
     >
       <body className="min-h-full flex flex-col bg-[#000000] text-white">
+        
+        {/* Global Premium Glass Navigation - Managed automatically across routes */}
+        <Navbar />
+
         {/* Main Application Content Area */}
-        <div className="flex-1 flex flex-col">
+        <main className="flex-1 flex flex-col">
           {children}
-        </div>
+        </main>
+
+        {/* Global Footer - Appears across all pages */}
+        <Footer />
+        
       </body>
     </html>
   );
