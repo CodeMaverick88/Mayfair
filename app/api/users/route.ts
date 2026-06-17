@@ -1,30 +1,15 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/db';
+import { db } from '@/lib/db'; // Changed from 'prisma' to 'db'
 
 export async function POST(request: Request) {
   try {
+    // Ensure you are using 'db' here as well
     const body = await request.json();
-    const { name, email, password } = body;
-
-    // Check if the user already exists in your Neon database by name
-    let user = await prisma.user.findUnique({
-      where: { name: name }
+    const user = await db.user.create({
+      data: body,
     });
-
-    // If they do not exist, create a new record saving their name and email
-    if (!user) {
-      user = await prisma.user.create({
-        data: {
-          name: name,
-          email: email || null,
-          pin: password
-        }
-      });
-    }
-
-    return NextResponse.json({ success: true, user });
+    return NextResponse.json(user);
   } catch (error) {
-    console.error("Database error:", error);
-    return NextResponse.json({ success: false, error: "Failed to save user" }, { status: 500 });
+    return new NextResponse("Internal Error", { status: 500 });
   }
 }
