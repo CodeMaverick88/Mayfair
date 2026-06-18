@@ -1,16 +1,17 @@
-datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+// Path: prisma/schema.prisma
+generator client {
+  provider   = "prisma-client-js"
+  engineType = "library"
 }
 
-generator client {
-  provider = "prisma-client-js"
+datasource db {
+  provider = "postgresql"
 }
 
 model User {
   id        String   @id @default(uuid())
   name      String   @unique
-  email     String?  // Optional email address field
-  pin       String   // Storing the access PIN/password
+  email     String?  
+  pin       String   
   createdAt DateTime @default(now())
 }

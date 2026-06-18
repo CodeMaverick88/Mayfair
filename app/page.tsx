@@ -6,10 +6,11 @@ import { useRouter } from 'next/navigation';
 export default function LoginPage() {
   const router = useRouter();
   
-  // Interface States
+  // Interface & Animation States
   const [currentImage, setCurrentImage] = useState(0);
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
+  const [isLoaded, setIsLoaded] = useState(false);
   
   // Notification States
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' } | null>(null);
@@ -20,40 +21,60 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
-  // Simplified descriptions matched to hotel images
+  // Clean, beautiful descriptions that work flawlessly across all device layouts
   const slideData = [
     {
-      src: '/Hotel Entrance.jpg',
+      src: '/Hotel.jpg',
       title: 'Welcome to Mayfair',
-      subtitle: 'Enjoy exceptional service and hospitality from the moment you arrive.'
+      subtitle: 'Experience warm hospitality and world-class service from the moment you arrive.'
     },
     {
-      src: '/Hotel ENytrance 2.jpg',
-      title: 'Beautiful Rooms',
-      subtitle: 'Relax in our clean, comfortable, and modern guest suites.'
+      src: '/Bedroom 1.jpg',
+      title: 'Luxury Guest Rooms',
+      subtitle: 'Relax in beautifully designed, clean, and spacious guest suites.'
     },
     {
-      src: '/Login images.jpeg',
-      title: 'Luxury Lounges',
-      subtitle: 'Spend your evenings unwinding in our quiet and peaceful common areas.'
+      src: '/Lobby.jpg',
+      title: 'Premium Lounges',
+      subtitle: 'Unwind or catch up on your work in our quiet, comfortable common areas.'
     },
     {
-      src: '/Login 2.jpeg',
+      src: '/Hotel Food.jpeg',
       title: 'Fine Dining',
-      subtitle: 'Taste delicious meals prepared fresh daily by our professional chefs.'
+      subtitle: 'Enjoy fresh, delicious meals prepared daily by our professional chefs.'
     },
     {
-      src: '/Hotel Lounge.jpg',
-      title: 'Perfect Events',
-      subtitle: 'Host your meetings, conferences, and celebrations in our spacious halls.'
+      src: '/Confrence Room.jpg',
+      title: 'Excellent Events',
+      subtitle: 'Host your business meetings, conferences, and celebrations in our modern halls.'
+    },
+    {
+      src: '/Gym 2.jpg',
+      title: 'Health & Wellness',
+      subtitle: 'Keep up with your fitness routine in our fully equipped gym and relaxing spa.'
+    },
+    {
+      src: '/Views.jpg',
+      title: 'Stunning Views',
+      subtitle: 'Take in beautiful city views while enjoying refreshing drinks at our rooftop lounge.'
+    },
+    {
+      src: '/Front Desk.jpg',
+      title: '24/7 Front Desk',
+      subtitle: 'Our dedicated team is always available to help you with anything you need.'
     }
   ];
 
-  // Carousel timer set to 7 seconds
+  // Trigger the loading bounce animation right after mount
+  useEffect(() => {
+    setIsLoaded(true);
+  }, []);
+
+  // Faster 5-second image rotation loop
   useEffect(() => {
     const timer = setInterval(() => {
       setCurrentImage((prev) => (prev + 1) % slideData.length);
-    }, 7000);
+    }, 5000);
     return () => clearInterval(timer);
   }, [slideData.length]);
 
@@ -91,36 +112,36 @@ export default function LoginPage() {
   };
 
   const openIntegrationModal = (provider: string) => {
-    setModalMessage(`${provider} login is currently being set up and will be available soon.`);
+    setModalMessage(`${provider} sign-in is currently being set up and will be ready soon.`);
   };
 
   return (
-    <div className="h-screen w-full flex bg-neutral-950 overflow-hidden select-none relative font-sans">
+    <div className="min-h-screen lg:h-screen w-full flex flex-col lg:flex-row bg-neutral-950 overflow-y-auto lg:overflow-hidden select-none relative font-sans">
       
-      {/* FULL-SCREEN BACKGROUND CAROUSEL WITH SMOOTHER CROSS-FADE */}
+      {/* 1. FULL-SCREEN BACKGROUND CAROUSEL */}
       <div className="absolute inset-0 w-full h-full z-0">
         {slideData.map((slide, idx) => (
           <div
             key={idx}
-            className={`absolute inset-0 w-full h-full transition-opacity duration-[2000ms] ease-in-out ${
+            className={`absolute inset-0 w-full h-full transition-opacity duration-1000 ease-in-out ${
               idx === currentImage ? 'opacity-100' : 'opacity-0'
             }`}
           >
             <img
               src={slide.src}
               alt={slide.title}
-              className={`w-full h-full object-cover transition-transform duration-[7000ms] ease-out ${
+              className={`w-full h-full object-cover transition-transform duration-[5000ms] ease-out ${
                 idx === currentImage ? 'scale-105' : 'scale-100'
               }`}
             />
           </div>
         ))}
-        {/* Dark overlay for text readability */}
-        <div className="absolute inset-0 bg-gradient-to-r from-black/50 via-transparent to-black/60 z-10" />
-        <div className="absolute inset-0 bg-black/20 z-10" />
+        {/* Responsive Shaders to maximize readability across both dark and bright areas of custom images */}
+        <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/40 to-black/70 lg:bg-gradient-to-r lg:from-black/60 lg:via-transparent lg:to-black/70 z-10" />
+        <div className="absolute inset-0 bg-black/30 z-10" />
       </div>
 
-      {/* TOP-RIGHT FLOATING NOTIFICATION */}
+      {/* 2. FLOATING NOTIFICATION TOAST */}
       <div 
         className={`fixed top-6 right-6 z-50 flex items-center gap-3 px-6 py-4 rounded-2xl border transition-all duration-500 ease-out transform ${
           toast 
@@ -138,7 +159,7 @@ export default function LoginPage() {
         <span className="text-sm font-medium tracking-wide">{toast?.message}</span>
       </div>
 
-      {/* SYSTEM NOTIFICATION MODAL */}
+      {/* 3. POPUP MODAL WINDOW */}
       {modalMessage && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-md transition-all duration-300">
           <div className="bg-neutral-950/80 backdrop-blur-2xl border border-white/10 rounded-3xl p-8 max-w-sm w-full mx-4 shadow-2xl text-center">
@@ -154,87 +175,75 @@ export default function LoginPage() {
               onClick={() => setModalMessage(null)}
               className="w-full bg-white text-black font-semibold py-2.5 rounded-xl text-sm hover:bg-neutral-200 transition-all"
             >
-              OK
+              Close
             </button>
           </div>
         </div>
       )}
 
-      {/* LEFT COLUMN: ANIMATED HOTEL DESCRIPTIONS */}
-      <div className="hidden lg:flex w-1/2 h-full flex-col justify-end p-20 relative z-20 pointer-events-none">
-        <div className="max-w-md relative h-48 flex flex-col justify-end">
+      {/* 4. BALANCED DESCRIPTION HEADER (Visible on ALL viewports) */}
+      <div className="w-full lg:w-1/2 flex flex-col justify-center lg:justify-end p-6 sm:p-10 lg:p-16 xl:p-20 relative z-20 pointer-events-none text-center lg:text-left mt-12 sm:mt-16 lg:mt-0">
+        <div className="max-w-md mx-auto lg:mx-0 relative h-24 sm:h-28 lg:h-40 w-full flex flex-col justify-end">
           {slideData.map((slide, idx) => (
             <div
               key={idx}
-              className={`absolute bottom-0 left-0 w-full transition-all duration-1000 transform ${
+              className={`absolute inset-x-0 bottom-0 w-full transition-all duration-1000 transform ${
                 idx === currentImage
                   ? 'opacity-100 translate-y-0 scale-100 pointer-events-auto'
-                  : 'opacity-0 translate-y-6 scale-95 pointer-events-none'
+                  : 'opacity-0 translate-y-4 scale-95 pointer-events-none'
               }`}
             >
-              <h1 className="text-5xl font-serif font-bold text-white mb-4 tracking-wide leading-tight drop-shadow-md">
+              <h1 className="text-2xl sm:text-3xl lg:text-4xl xl:text-5xl font-serif font-bold text-white mb-2 lg:mb-3 tracking-wide leading-tight drop-shadow-md">
                 {slide.title}
               </h1>
-              <p className="text-neutral-200 text-base font-light tracking-wide leading-relaxed drop-shadow-sm">
+              <p className="text-neutral-200 text-xs sm:text-sm lg:text-base font-light tracking-wide leading-relaxed drop-shadow-sm">
                 {slide.subtitle}
               </p>
             </div>
           ))}
         </div>
-        
-        {/* Navigation Indicators */}
-        <div className="flex gap-3 mt-8 pointer-events-auto">
-          {slideData.map((_, idx) => (
-            <button 
-              key={idx} 
-              type="button"
-              onClick={() => setCurrentImage(idx)}
-              className="py-2 focus:outline-none group"
-            >
-              <div 
-                className={`h-1 rounded-full transition-all duration-1000 ${
-                  idx === currentImage ? 'w-12 bg-[#6D001A]' : 'w-3 bg-white/30 group-hover:bg-white/60'
-                }`}
-              />
-            </button>
-          ))}
-        </div>
       </div>
 
-      {/* RIGHT COLUMN: GLASS LOG IN CARD */}
-      <div className="w-full lg:w-1/2 h-full flex items-center justify-center p-6 relative z-20 overflow-y-auto">
-        
-        <div className="w-full max-w-md bg-white/[0.02] backdrop-blur-3xl border border-white/[0.08] shadow-[inset_0_1px_2px_rgba(255,255,255,0.1),0_25px_50px_-12px_rgba(0,0,0,0.8)] p-8 lg:p-10 rounded-3xl my-auto transition-transform duration-500">
-          <h2 className="text-2xl font-serif font-bold mb-1 text-white tracking-wide">Hotel System Login</h2>
-          <p className="text-neutral-400 text-xs mb-8 font-light tracking-wide">Please sign in to access your account dashboard</p>
+      {/* 5. RIGHT COLUMN: BOUNCING GLASSMORPHISM LOG IN PORTAL */}
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-4 sm:p-6 lg:p-8 relative z-20 mt-4 sm:mt-6 lg:mt-0 mb-12 lg:mb-0">
+        <div 
+          style={{
+            transition: 'all 2200ms cubic-bezier(0.16, 1.3, 0.3, 1)',
+            opacity: isLoaded ? 1 : 0,
+            transform: isLoaded ? 'translateY(0px) scale(1)' : 'translateY(80px) scale(0.94)'
+          }}
+          className="w-full max-w-md bg-white/[0.02] backdrop-blur-3xl border border-white/[0.08] shadow-[inset_0_1px_2px_rgba(255,255,255,0.1),0_25px_50px_-12px_rgba(0,0,0,0.8)] p-6 sm:p-8 lg:p-10 rounded-3xl"
+        >
+          <h2 className="text-xl sm:text-2xl font-serif font-bold mb-1 text-white tracking-wide">Hotel System Login</h2>
+          <p className="text-neutral-400 text-xs mb-5 sm:mb-6 lg:mb-8 font-light tracking-wide">Please sign in to access your hotel management dashboard</p>
 
-          <form className="space-y-5" onSubmit={handleLoginSubmit}>
+          <form className="space-y-3 sm:space-y-4" onSubmit={handleLoginSubmit}>
             <div>
-              <label className="block text-[10px] font-semibold text-neutral-400 mb-2 uppercase tracking-widest">First Name</label>
+              <label className="block text-[10px] font-semibold text-neutral-400 mb-1.5 uppercase tracking-widest">First Name</label>
               <input 
                 type="text" 
                 required
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Enter your name" 
-                className="w-full bg-black/30 backdrop-blur-md border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-[#6D001A] focus:bg-black/50 transition-all duration-300" 
+                className="w-full bg-black/30 backdrop-blur-md border border-white/10 rounded-xl px-4 py-2.5 sm:py-3 text-sm text-white focus:outline-none focus:border-[#6D001A] focus:bg-black/50 transition-all duration-300" 
               />
             </div>
             
             <div>
-              <label className="block text-[10px] font-semibold text-neutral-400 mb-2 uppercase tracking-widest">Email Address</label>
+              <label className="block text-[10px] font-semibold text-neutral-400 mb-1.5 uppercase tracking-widest">Email Address</label>
               <input 
                 type="email" 
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="name@hotel.com" 
-                className="w-full bg-black/30 backdrop-blur-md border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-[#6D001A] focus:bg-black/50 transition-all duration-300" 
+                className="w-full bg-black/30 backdrop-blur-md border border-white/10 rounded-xl px-4 py-2.5 sm:py-3 text-sm text-white focus:outline-none focus:border-[#6D001A] focus:bg-black/50 transition-all duration-300" 
               />
             </div>
             
             <div>
-              <label className="block text-[10px] font-semibold text-neutral-400 mb-2 uppercase tracking-widest">Password</label>
+              <label className="block text-[10px] font-semibold text-neutral-400 mb-1.5 uppercase tracking-widest">Password</label>
               <div className="relative">
                 <input 
                   type={showPassword ? 'text' : 'password'} 
@@ -242,7 +251,7 @@ export default function LoginPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••" 
-                  className="w-full bg-black/30 backdrop-blur-md border border-white/10 rounded-xl pl-4 pr-12 py-3 text-sm text-white focus:outline-none focus:border-[#6D001A] focus:bg-black/50 transition-all duration-300" 
+                  className="w-full bg-black/30 backdrop-blur-md border border-white/10 rounded-xl pl-4 pr-12 py-2.5 sm:py-3 text-sm text-white focus:outline-none focus:border-[#6D001A] focus:bg-black/50 transition-all duration-300" 
                 />
                 
                 <button
@@ -264,8 +273,7 @@ export default function LoginPage() {
               </div>
             </div>
 
-            <div className="flex items-center justify-between text-[11px] text-neutral-400 pt-0.5">
-              {/* UNIQUE CUSTOM REMEMBER ME BUTTON */}
+            <div className="flex items-center justify-between text-[11px] text-neutral-400 pt-1">
               <button
                 type="button"
                 onClick={() => setRememberMe(!rememberMe)}
@@ -294,16 +302,15 @@ export default function LoginPage() {
               </button>
             </div>
 
-            {/* MATCHING SYSTEM BUTTON */}
             <button 
               type="submit" 
-              className="w-full bg-[#6D001A]/80 border border-white/10 text-white hover:bg-[#8A0022] font-bold py-3.5 rounded-xl transition-all duration-300 mt-2 shadow-lg shadow-[#6D001A]/20 tracking-wide backdrop-blur-md transform hover:-translate-y-0.5 active:translate-y-0"
+              className="w-full bg-[#6D001A]/80 border border-white/10 text-white hover:bg-[#8A0022] font-bold py-3 rounded-xl transition-all duration-300 mt-2 shadow-lg shadow-[#6D001A]/20 tracking-wide backdrop-blur-md transform hover:-translate-y-0.5 active:translate-y-0"
             >
               Log In
             </button>
           </form>
 
-          <div className="my-6 flex items-center gap-4">
+          <div className="my-5 flex items-center gap-4">
             <div className="h-px bg-white/10 flex-1" />
             <span className="text-[9px] text-neutral-500 uppercase tracking-widest font-semibold">Or log in with</span>
             <div className="h-px bg-white/10 flex-1" />
@@ -314,20 +321,20 @@ export default function LoginPage() {
             <button 
               type="button" 
               onClick={() => openIntegrationModal('Google')}
-              className="flex items-center justify-center gap-2 bg-white/[0.02] backdrop-blur-md border border-white/10 rounded-xl py-3 text-sm text-white hover:bg-white/[0.07] hover:border-white/20 transition-all duration-300 transform hover:-translate-y-0.5"
+              className="flex items-center justify-center gap-2 bg-white/[0.02] backdrop-blur-md border border-white/10 rounded-xl py-2.5 text-sm text-white hover:bg-white/[0.07] hover:border-white/20 transition-all duration-300 transform hover:-translate-y-0.5"
             >
               Google
             </button>
             <button 
               type="button" 
               onClick={() => openIntegrationModal('Facebook')}
-              className="flex items-center justify-center gap-2 bg-white/[0.02] backdrop-blur-md border border-white/10 rounded-xl py-3 text-sm text-white hover:bg-white/[0.07] hover:border-white/20 transition-all duration-300 transform hover:-translate-y-0.5"
+              className="flex items-center justify-center gap-2 bg-white/[0.02] backdrop-blur-md border border-white/10 rounded-xl py-2.5 text-sm text-white hover:bg-white/[0.07] hover:border-white/20 transition-all duration-300 transform hover:-translate-y-0.5"
             >
               Facebook
             </button>
           </div>
           
-          <div className="mt-6 text-center text-xs text-neutral-500 font-light tracking-wide">
+          <div className="mt-5 text-center text-xs text-neutral-500 font-light tracking-wide">
             Don't have an account?{' '}
             <button 
               type="button"
