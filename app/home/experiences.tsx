@@ -619,7 +619,7 @@ export default function ExperiencesFull(): React.ReactElement {
   ];
 
   const portraits = [
-    { src: '/Video Card 1.mp4', poster: '/placeholder.jpg', title: 'Suite Reel', typewriterText: 'Light, stillness, design.' },
+    { src: '/Cooking Video Card.mp4', poster: '/placeholder.jpg', title: 'Suite Reel', typewriterText: 'Light, stillness, design.' },
     { src: '/Video Card 2.mp4', poster: '/placeholder.jpg', title: 'Kitchen Reel', typewriterText: 'Heat, craft, flavor.' },
     { src: '/Video Card 3.mp4', poster: '/placeholder.jpg', title: 'Spa Reel', typewriterText: 'Restore, repeat.' },
   ];
