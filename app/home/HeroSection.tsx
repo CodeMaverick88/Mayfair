@@ -1,269 +1,498 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 
 /*
-  ╔══════════════════════════════════════════════════════════════╗
-  ║  MAYFAIR — VELOCITY HERO WITH VISIBLE ETCHED BACKGROUND TEXT ║
-  ║  1. Swapped watermarks to high-contrast premium low-opacity.  ║
-  ║  2. Retained full hardware-accelerated physics calculations.║
-  ╚══════════════════════════════════════════════════════════════╝
+  ╔══════════════════════════════════════════════════════════════════╗
+  ║  MAYFAIR — HERO v3                                               ║
+  ║  • No motion blur anywhere                                       ║
+  ║  • Slower typewriters (130ms video / 220ms left panel)          ║
+  ║  • Toned-down watermark and chip colors                         ║
+  ║  • Silkier spring physics (friction 0.055)                      ║
+  ║  • Staggered left-panel entrance (eyebrow → headline → body)   ║
+  ╚══════════════════════════════════════════════════════════════════╝
 */
 
+// ─── Brand tokens ─────────────────────────────────────────────────────────────
+const CRIMSON    = '#6D001A';
+const CRIMSON_DIM = '#5a0015';
+const GOLD       = '#E5C494';
+const GOLD_MUTED = '#c9a96e';
+
+// ─── Ease helpers ─────────────────────────────────────────────────────────────
+const easeOutCubic    = (t: number) => 1 - Math.pow(1 - t, 3);
+const easeInOutCubic  = (t: number) =>
+  t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+
+// ─── useTypewriter — ref-based, no stale closure ──────────────────────────────
+function useTypewriter(target: string, active: boolean, speed = 130) {
+  const [text, setText]   = useState('');
+  const idxRef            = useRef(0);
+  const timerRef          = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const stop = useCallback(() => {
+    if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
+  }, []);
+
+  useEffect(() => {
+    if (!active) { stop(); idxRef.current = 0; setText(''); return; }
+    if (idxRef.current >= target.length) return;
+
+    const tick = () => {
+      idxRef.current += 1;
+      setText(target.slice(0, idxRef.current));
+      if (idxRef.current < target.length) {
+        timerRef.current = setTimeout(tick, speed);
+      }
+    };
+    timerRef.current = setTimeout(tick, speed);
+    return stop;
+  }, [active, target, speed, stop]);
+
+  return { text, done: text.length === target.length && target.length > 0 };
+}
+
+// ─── useSequentialTypewriter — lines type one after the other ─────────────────
+function useSequentialTypewriter(lines: string[], active: boolean, speed = 220) {
+  const [texts,   setTexts]   = useState<string[]>(lines.map(() => ''));
+  const [lineIdx, setLineIdx] = useState(0);
+  const idxRef   = useRef(0);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const stop = useCallback(() => {
+    if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
+  }, []);
+
+  useEffect(() => {
+    if (!active) {
+      stop();
+      idxRef.current = 0;
+      setLineIdx(0);
+      setTexts(lines.map(() => ''));
+    }
+  }, [active]); // eslint-disable-line
+
+  useEffect(() => {
+    if (!active || lineIdx >= lines.length) return;
+    idxRef.current = 0;
+    const target = lines[lineIdx];
+
+    const tick = () => {
+      idxRef.current += 1;
+      const partial = target.slice(0, idxRef.current);
+      setTexts(prev => { const n = [...prev]; n[lineIdx] = partial; return n; });
+
+      if (idxRef.current < target.length) {
+        timerRef.current = setTimeout(tick, speed);
+      } else {
+        // Longer pause between lines — feels deliberate, not rushed
+        timerRef.current = setTimeout(() => setLineIdx(l => l + 1), 480);
+      }
+    };
+
+    timerRef.current = setTimeout(tick, lineIdx === 0 ? 0 : 80);
+    return stop;
+  }, [active, lineIdx]); // eslint-disable-line
+
+  return texts;
+}
+
+// ─── Blinking cursor ──────────────────────────────────────────────────────────
+const Cursor = ({ color = CRIMSON }: { color?: string }) => (
+  <span
+    style={{
+      display:        'inline-block',
+      width:          '2px',
+      height:         '0.75em',
+      background:     color,
+      marginLeft:     '3px',
+      verticalAlign:  'middle',
+      borderRadius:   '1px',
+    }}
+    className="animate-pulse"
+  />
+);
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+const ANIM_DIST = 1100;
+
+// ─── Component ────────────────────────────────────────────────────────────────
 export default function HeroSection() {
   const [mounted, setMounted] = useState(false);
-  
-  // Consolidating animation metrics to prevent independent thrashed renders
-  const [frameMetrics, setFrameMetrics] = useState({
-    progress: 0,
-    velocity: 0,
-    isPast: false
-  });
+  const [phx, setPhx] = useState({ progress: 0, velocity: 0, isPast: false });
 
-  // Isolated Text States
-  const [videoText, setVideoText] = useState('');
-  const [leftLine1, setLeftLine1] = useState('');
-  const [leftLine2, setLeftLine2] = useState('');
-  const [leftLine3, setLeftLine3] = useState('');
-  const [leftTypingStarted, setLeftTypingStarted] = useState(false);
-
-  const VIDEO_MESSAGE = "Welcome to Mayfair. Experience a refined sanctuary of pure luxury.";
-  const L1_TARGET = "IMMERSE";
-  const L2_TARGET = "YOURSELF IN";
-  const L3_TARGET = "MAYFAIR";
-
-  const targetScroll = useRef(0);
+  const targetScroll  = useRef(0);
   const currentScroll = useRef(0);
-  const leftTypewriterId = useRef<NodeJS.Timeout | null>(null);
+  const rafRef        = useRef<number>(0);
 
-  const ANIMATION_DISTANCE = 1100;
+  // ── Video typewriter (2 lines, sequential) ───────────────────────────────
+  const VIDEO_LINES = [
+    'Welcome to Mayfair.',
+    'Experience a refined sanctuary of pure luxury.',
+  ];
+  const [vLineIdx, setVLineIdx] = useState(0);
+  const { text: vText, done: vDone } = useTypewriter(
+    VIDEO_LINES[vLineIdx] ?? '',
+    mounted,
+    130  // slower — one char every 130 ms
+  );
+  useEffect(() => {
+    if (vDone && vLineIdx < VIDEO_LINES.length - 1) {
+      const t = setTimeout(() => setVLineIdx(i => i + 1), 600);
+      return () => clearTimeout(t);
+    }
+  }, [vDone, vLineIdx]);
 
-  // ── HARDWARE ACCELERATED FRAME SYNCHRONIZATION LOOP ──
+  // ── Left panel typewriter (starts after 12% scroll) ──────────────────────
+  const LEFT_LINES    = ['IMMERSE', 'YOURSELF IN', 'MAYFAIR'];
+  const leftActive    = phx.progress > 0.12;
+  const leftTexts     = useSequentialTypewriter(LEFT_LINES, leftActive, 220);
+
+  // ── Mount + RAF spring loop ───────────────────────────────────────────────
   useEffect(() => {
     setMounted(true);
 
-    const handleScroll = () => {
-      targetScroll.current = window.scrollY;
+    const onScroll = () => { targetScroll.current = window.scrollY; };
+
+    const loop = () => {
+      // Spring friction: 0.055 → silky, not sluggish
+      currentScroll.current += (targetScroll.current - currentScroll.current) * 0.055;
+
+      const vel  = targetScroll.current - currentScroll.current;
+      const prog = Math.min(1, Math.max(0, currentScroll.current / ANIM_DIST));
+
+      setPhx({ progress: prog, velocity: vel, isPast: targetScroll.current > ANIM_DIST });
+      rafRef.current = requestAnimationFrame(loop);
     };
 
-    let rafId: number;
-    const updatePhysicsLoop = () => {
-      const friction = 0.06; 
-      currentScroll.current += (targetScroll.current - currentScroll.current) * friction;
-
-      const rawVelocity = targetScroll.current - currentScroll.current;
-      const progressCalculated = Math.min(1, Math.max(0, currentScroll.current / ANIMATION_DISTANCE));
-
-      setFrameMetrics({
-        progress: progressCalculated,
-        velocity: rawVelocity,
-        isPast: targetScroll.current > ANIMATION_DISTANCE
-      });
-
-      rafId = requestAnimationFrame(updatePhysicsLoop);
-    };
-
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    rafId = requestAnimationFrame(updatePhysicsLoop);
-
+    window.addEventListener('scroll', onScroll, { passive: true });
+    rafRef.current = requestAnimationFrame(loop);
     return () => {
-      window.removeEventListener('scroll', handleScroll);
-      cancelAnimationFrame(rafId);
+      window.removeEventListener('scroll', onScroll);
+      cancelAnimationFrame(rafRef.current);
     };
   }, []);
 
-  // ── CINEMATIC TYPEWRITER ENGINE 1: SCREEN OVERLAY ──
-  useEffect(() => {
-    if (!mounted) return;
-    let index = 0;
-    setVideoText('');
-    const interval = setInterval(() => {
-      if (index < VIDEO_MESSAGE.length) {
-        setVideoText((prev) => prev + VIDEO_MESSAGE.charAt(index));
-        index++;
-      } else {
-        clearInterval(interval);
-      }
-    }, 210);
-    return () => clearInterval(interval);
-  }, [mounted]);
-
-  // ── CINEMATIC TYPEWRITER ENGINE 2: LEFT PANEL STATEMENT ──
-  useEffect(() => {
-    if (frameMetrics.progress > 0.12 && !leftTypingStarted) {
-      setLeftTypingStarted(true);
-      
-      let charIdx = 0;
-      let currentLine = 1;
-
-      const runSlowTypewriter = () => {
-        if (currentLine === 1) {
-          if (charIdx < L1_TARGET.length) {
-            setLeftLine1(L1_TARGET.slice(0, charIdx + 1));
-            charIdx++;
-            leftTypewriterId.current = setTimeout(runSlowTypewriter, 190);
-          } else {
-            currentLine = 2;
-            charIdx = 0;
-            leftTypewriterId.current = setTimeout(runSlowTypewriter, 300);
-          }
-        } else if (currentLine === 2) {
-          if (charIdx < L2_TARGET.length) {
-            setLeftLine2(L2_TARGET.slice(0, charIdx + 1));
-            charIdx++;
-            leftTypewriterId.current = setTimeout(runSlowTypewriter, 160);
-          } else {
-            currentLine = 3;
-            charIdx = 0;
-            leftTypewriterId.current = setTimeout(runSlowTypewriter, 300);
-          }
-        } else if (currentLine === 3) {
-          if (charIdx < L3_TARGET.length) {
-            setLeftLine3(L3_TARGET.slice(0, charIdx + 1));
-            charIdx++;
-            leftTypewriterId.current = setTimeout(runSlowTypewriter, 200);
-          }
-        }
-      };
-
-      runSlowTypewriter();
-    } 
-    else if (frameMetrics.progress < 0.03 && leftTypingStarted) {
-      if (leftTypewriterId.current) clearTimeout(leftTypewriterId.current);
-      setLeftLine1('');
-      setLeftLine2('');
-      setLeftLine3('');
-      setLeftTypingStarted(false);
-    }
-  }, [frameMetrics.progress, leftTypingStarted]);
-
   if (!mounted) return <div className="min-h-screen bg-white" />;
 
-  const p = frameMetrics.progress;
-  const videoWidth = 100 - (p * 52);   
-  const videoHeight = 100 - (p * 70);  
-  const videoTop = p * 35;             
-  const videoLeft = p * 46;            
+  // ── Derived values ────────────────────────────────────────────────────────
+  const p   = phx.progress;
+  const ep  = easeInOutCubic(p);
+  const eoc = easeOutCubic(p);
+  const vel = phx.velocity;
 
-  const videoOverlayOpacity = Math.max(0, 1 - p * 4.5);
-  const leftTextOpacity = Math.min(1, Math.max(0, (p - 0.10) / 0.65));
+  // Video panel geometry — morphs from fullscreen → right column thumbnail
+  const vidW    = phx.isPast ? 48   : 100 - ep * 52;
+  const vidH    = phx.isPast ? 30   : 100 - ep * 70;
+  const vidTop  = phx.isPast ? 35   : ep  * 35;
+  const vidLeft = phx.isPast ? 46   : ep  * 46;
 
-  const textDynamicPullY = frameMetrics.velocity * 0.08; 
-  const textDynamicBounceScale = 1 + Math.min(0.03, Math.abs(frameMetrics.velocity) * 0.00025);
+  // Gentle velocity-based vertical drag (no blur, just a tiny Y nudge)
+  const velNudge = vel * 0.045;
+  // Subtle scale bounce on fast scroll
+  const velBounce = 1 + Math.min(0.018, Math.abs(vel) * 0.00014);
+
+  // Left panel alpha — fades in between 10–70% scroll progress
+  const leftAlpha    = Math.min(1, Math.max(0, (p - 0.10) / 0.58));
+  const leftSlideX   = (1 - easeOutCubic(leftAlpha)) * -36;
+  const leftSlideY   = (1 - easeOutCubic(leftAlpha)) * 18 + velNudge;
+
+  // Stagger delays for sub-elements
+  const eyebrowAlpha = Math.min(1, Math.max(0, (p - 0.10) / 0.30));
+  const bodyAlpha    = Math.min(1, Math.max(0, (p - 0.28) / 0.40));
+  const bodySlideY   = (1 - easeOutCubic(Math.min(1, Math.max(0, (p - 0.28) / 0.40)))) * 16;
+
+  // Video overlay fades out as panel shrinks
+  const overlayAlpha = Math.max(0, 1 - ep * 3.6);
+
+  // Watermark parallax depth
+  const watermarkY   = p * -70;
 
   return (
-    <div 
-      className="relative bg-white text-black w-full" 
-      style={{ height: `calc(100vh + ${ANIMATION_DISTANCE}px)` }}
-    >
+    <>
+      <style>{`
+        @keyframes mfFadeUp {
+          from { opacity: 0; transform: translateY(18px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes mfSlideR {
+          from { opacity: 0; transform: translateX(-22px); }
+          to   { opacity: 1; transform: translateX(0); }
+        }
+        @keyframes mfDividerGrow {
+          from { width: 0; opacity: 0; }
+          to   { width: 52px; opacity: 1; }
+        }
+        @keyframes subtleGold {
+          0%, 100% { opacity: 0.65; }
+          50%      { opacity: 0.9; }
+        }
+        .mf-fade-up     { animation: mfFadeUp  0.75s cubic-bezier(0.16,1,0.3,1) both; }
+        .mf-slide-r     { animation: mfSlideR  0.65s cubic-bezier(0.16,1,0.3,1) both; }
+        .mf-divider     { animation: mfDividerGrow 0.9s cubic-bezier(0.16,1,0.3,1) both; }
+        .subtle-gold    { animation: subtleGold 3.2s ease-in-out infinite; }
+      `}</style>
+
       <div
-        style={{
-          position: frameMetrics.isPast ? 'absolute' : 'fixed',
-          top: frameMetrics.isPast ? `${ANIMATION_DISTANCE}px` : '0px',
-          left: 0,
-          width: '100%',
-          height: '100vh',
-        }}
-        className="overflow-hidden bg-white z-20"
+        className="relative bg-white text-black w-full"
+        style={{ height: `calc(100vh + ${ANIM_DIST}px)` }}
       >
-        
-        {/* ── CINEMATIC AMBIENT BACKGROUND TEXT (FIXED ETCHED CONTRAST VALUE) ── */}
         <div
           style={{
-            opacity: leftTextOpacity * 1, 
-            transform: `translateY(${textDynamicPullY * 0.4}px) scale(${1 + Math.min(0.015, Math.abs(frameMetrics.velocity) * 0.00015)})`,
-            transition: 'transform 0.2s cubic-bezier(0.1, 0.8, 0.2, 1), opacity 0.5s ease-out',
+            position: phx.isPast ? 'absolute' : 'fixed',
+            top:      phx.isPast ? `${ANIM_DIST}px` : '0px',
+            left: 0,
+            width:  '100%',
+            height: '100vh',
           }}
-          className="absolute left-[4%] top-[18vh] text-[18vw] font-serif font-black text-black/[0.03] tracking-widest leading-none select-none pointer-events-none z-0 uppercase"
+          className="overflow-hidden bg-white z-20"
         >
-          Immerse
-        </div>
-        
-        {/* ── LEFT GRID LAYOUT BLOCK ── */}
-        <div
-          style={{
-            opacity: leftTextOpacity,
-            transform: `translateY(${textDynamicPullY}px) scale(${textDynamicBounceScale})`,
-            transformOrigin: 'left center',
-            transition: 'transform 0.2s cubic-bezier(0.1, 0.8, 0.2, 1), opacity 0.4s ease-out',
-          }}
-          className="absolute left-[6%] sm:left-[8%] top-[35vh] min-h-[30vh] w-[34%] flex flex-col justify-center pointer-events-none select-none z-10"
-        >
-          <span className="text-[10px] tracking-[0.6em] text-[#6D001A] font-bold uppercase mb-4 block">
-            The Mayfair Collection
-          </span>
-          
-          <h2 
-            className="font-serif uppercase leading-[1.08] text-black tracking-wide"
-            style={{ 
-              fontSize: 'clamp(2.2rem, 3.8vw, 5.5rem)',
-              fontWeight: 200
-            }}
-          >
-            {leftLine1}{leftLine1.length > 0 && leftLine1.length < L1_TARGET.length && <span className="text-[#6D001A] animate-pulse ml-0.5">|</span>}
-            <br />
-            {leftLine2}{leftLine2.length > 0 && leftLine2.length < L2_TARGET.length && <span className="text-[#6D001A] animate-pulse ml-0.5">|</span>}
-            <br />
-            {leftLine3}{leftLine3.length > 0 && leftLine3.length < L3_TARGET.length && <span className="inline-block w-4 h-[3px] bg-[#6D001A] animate-bounce ml-1" />}
-          </h2>
 
-          <div className="w-14 h-[1px] bg-black/40 my-6" />
-
-          <p className="text-[11px] sm:text-xs text-neutral-400 font-normal tracking-[0.18em] leading-relaxed max-w-sm">
-            Curated architectural layers perfectly adapted to give lifestyle geometry a beautiful aesthetic direction.
-          </p>
-        </div>
-
-        {/* ── RIGHT GRID LAYOUT BLOCK: LANDSCAPE VIDEO VIEWPORT ── */}
-        <div
-          style={{
-            position: 'absolute',
-            width: `${frameMetrics.isPast ? 48 : videoWidth}vw`,
-            height: `${frameMetrics.isPast ? 30 : videoHeight}vh`,
-            top: `${frameMetrics.isPast ? 35 : videoTop}vh`,
-            left: `${frameMetrics.isPast ? 46 : videoLeft}vw`,
-            transform: `translateY(${textDynamicPullY * 0.35}px)`,
-            willChange: 'width, height, top, left, transform',
-            transition: 'transform 0.2s cubic-bezier(0.1, 0.8, 0.2, 1)',
-          }}
-          className="shadow-[0_50px_100px_rgba(0,0,0,0.05)] bg-black overflow-hidden z-20"
-        >
-          <div className="absolute inset-0 bg-black/10 z-10 pointer-events-none" />
-
+          {/* ── Background watermark — very quiet, parallax depth ────────── */}
           <div
-            style={{ opacity: videoOverlayOpacity }}
-            className="absolute inset-0 z-30 flex flex-col items-center justify-center text-center px-6 pointer-events-none select-none transition-opacity duration-300"
+            style={{
+              opacity:   leftAlpha * 0.018,        // much quieter than before
+              transform: `translateY(${watermarkY}px)`,
+              willChange: 'transform, opacity',
+            }}
+            className="absolute left-[1%] top-[6vh] text-[22vw] font-serif font-black text-black tracking-widest leading-none select-none pointer-events-none z-0 uppercase"
           >
-            <span className="text-[10px] text-[#E5C494] font-bold tracking-[0.5em] uppercase mb-4 drop-shadow-sm">
-              Exclusive Sanctuary
-            </span>
-            <h1 className="font-serif text-white uppercase font-bold text-xl sm:text-2xl md:text-3xl tracking-[0.24em] leading-snug max-w-2xl drop-shadow-[0_4px_12px_rgba(0,0,0,0.85)]">
-              {videoText.split('.')[0]}.
-            </h1>
-            <p className="text-[11px] sm:text-xs md:text-sm tracking-[0.18em] font-normal text-neutral-200 mt-3 max-w-xl drop-shadow-[0_2px_8px_rgba(0,0,0,0.9)]">
-              {videoText.includes('.') ? videoText.substring(videoText.indexOf('.') + 1).trim() : ''}
-              <span className="inline-block w-[1.5px] h-3.5 ml-1.5 bg-[#6D001A] animate-pulse align-middle" />
-            </p>
-
-            <div className="mt-14 flex flex-col items-center gap-1 opacity-40 animate-bounce">
-              <span className="text-[9px] text-white uppercase tracking-[0.35em]">Scroll Down</span>
-              <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
-              </svg>
-            </div>
+            Immerse
           </div>
 
-          <video
-            autoPlay
-            muted
-            loop
-            playsInline
-            className="w-full h-full object-cover scale-105"
-            src="/YTDown_YouTube_Luxury-Hotel-Video-Reel-2023_Media_cdKx1Zv3YKs_001_1080p.mp4"
+          {/* ── Thin crimson accent rule — slides in with panel ─────────── */}
+          <div
+            style={{
+              opacity:         leftAlpha * 0.35,
+              transform:       `scaleX(${easeOutCubic(leftAlpha)}) translateY(${leftSlideY * 0.25}px)`,
+              transformOrigin: 'left center',
+              width:           '22%',
+              height:          '1px',
+              background:      `linear-gradient(90deg, ${CRIMSON}60, transparent)`,
+            }}
+            className="absolute left-[6%] sm:left-[8%] top-[33.5vh] z-10"
           />
-        </div>
 
+          {/* ── LEFT PANEL ───────────────────────────────────────────────── */}
+          <div
+            style={{
+              opacity:         leftAlpha,
+              transform:       `translateX(${leftSlideX}px) translateY(${leftSlideY}px) scale(${velBounce})`,
+              transformOrigin: 'left center',
+              willChange:      'transform, opacity',
+            }}
+            className="absolute left-[6%] sm:left-[8%] top-[35vh] w-[40%] min-w-[240px] max-w-[460px] flex flex-col justify-center pointer-events-none select-none z-10"
+          >
+
+            {/* Eyebrow label — staggered fade */}
+            <span
+              style={{
+                color:   GOLD_MUTED,
+                opacity: eyebrowAlpha,
+                transform: `translateY(${(1 - easeOutCubic(eyebrowAlpha)) * 10}px)`,
+              }}
+              className="text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.58em] mb-4 block subtle-gold"
+            >
+              The Mayfair Collection
+            </span>
+
+            {/* Headline — sequential typewriter */}
+            <h2
+              className="font-serif uppercase leading-[1.06] tracking-wide"
+              style={{ fontSize: 'clamp(2rem, 3.5vw, 5rem)', fontWeight: 200, color: '#111' }}
+            >
+              {/* Line 1 */}
+              <span className="block">
+                {leftTexts[0]}
+                {leftTexts[0].length > 0 && leftTexts[0].length < LEFT_LINES[0].length && (
+                  <Cursor />
+                )}
+              </span>
+
+              {/* Line 2 */}
+              <span className="block">
+                {leftTexts[1]}
+                {leftTexts[1].length > 0 && leftTexts[1].length < LEFT_LINES[1].length && (
+                  <Cursor />
+                )}
+              </span>
+
+              {/* Line 3 — crimson, the signature moment */}
+              <span className="block" style={{ color: CRIMSON }}>
+                {leftTexts[2]}
+                {leftTexts[2].length > 0 && leftTexts[2].length < LEFT_LINES[2].length && (
+                  <Cursor color={CRIMSON_DIM} />
+                )}
+              </span>
+            </h2>
+
+            {/* Divider — animates width in when panel is visible */}
+            {leftAlpha > 0.5 && (
+              <div
+                className="mf-divider my-5 sm:my-6"
+                style={{
+                  height:     '1px',
+                  background: `linear-gradient(90deg, ${CRIMSON}70, transparent)`,
+                }}
+              />
+            )}
+
+            {/* Body copy — delayed stagger */}
+            <p
+              style={{
+                color:     '#777',
+                opacity:   bodyAlpha,
+                transform: `translateY(${bodySlideY}px)`,
+                fontSize:  'clamp(0.6rem, 0.9vw, 0.72rem)',
+                letterSpacing: '0.15em',
+                lineHeight: 1.8,
+                maxWidth:  '290px',
+              }}
+            >
+              Curated architectural layers, perfectly adapted to give lifestyle geometry a beautiful aesthetic direction.
+            </p>
+          </div>
+
+          {/* ── VIDEO PANEL ──────────────────────────────────────────────── */}
+          <div
+            style={{
+              position: 'absolute',
+              width:    `${phx.isPast ? 48   : vidW}vw`,
+              height:   `${phx.isPast ? 30   : vidH}vh`,
+              top:      `${phx.isPast ? 35   : vidTop}vh`,
+              left:     `${phx.isPast ? 46   : vidLeft}vw`,
+              transform: `translateY(${velNudge * 0.28}px) scale(${velBounce * 0.998})`,
+              willChange: 'width, height, top, left, transform',
+            }}
+            className="shadow-[0_40px_90px_rgba(0,0,0,0.10)] bg-black overflow-hidden z-20"
+          >
+            {/* Vignette gradient over video */}
+            <div
+              className="absolute inset-0 z-10 pointer-events-none"
+              style={{
+                background: 'linear-gradient(to bottom, rgba(0,0,0,0.38) 0%, transparent 40%, rgba(0,0,0,0.55) 100%)',
+              }}
+            />
+
+            {/* ── VIDEO OVERLAY TEXT ───────────────────────────────────── */}
+            <div
+              style={{ opacity: overlayAlpha, pointerEvents: 'none' }}
+              className="absolute inset-0 z-30 flex flex-col items-center justify-center text-center px-6 select-none gap-5"
+            >
+              {/* Eyebrow pill — toned-down, not shouting */}
+              <span
+                className="inline-flex items-center px-4 py-1.5 rounded-full font-bold uppercase subtle-gold"
+                style={{
+                  fontSize:       'clamp(0.5rem, 0.75vw, 0.65rem)',
+                  letterSpacing:  '0.42em',
+                  background:     'rgba(109,0,26,0.55)',   // less saturated
+                  color:          GOLD_MUTED,
+                  border:         `1px solid rgba(229,196,148,0.22)`,
+                  backdropFilter: 'blur(6px)',
+                }}
+              >
+                Exclusive Sanctuary
+              </span>
+
+              {/* Line 1 — white text on glass card */}
+              <div
+                style={{
+                  background:     'rgba(0,0,0,0.45)',
+                  backdropFilter: 'blur(12px)',
+                  border:         '1px solid rgba(255,255,255,0.07)',
+                  borderRadius:   '14px',
+                  padding:        '10px 22px',
+                  maxWidth:       '80%',
+                }}
+              >
+                <h1
+                  className="font-serif uppercase font-bold tracking-[0.22em] leading-snug"
+                  style={{
+                    fontSize:   'clamp(0.95rem, 2vw, 2.2rem)',
+                    color:      '#fff',
+                    textShadow: '0 2px 16px rgba(109,0,26,0.45)',
+                  }}
+                >
+                  {vLineIdx === 0 ? (
+                    <>{vText}{vText.length < VIDEO_LINES[0].length && <Cursor color={GOLD_MUTED} />}</>
+                  ) : (
+                    VIDEO_LINES[0]
+                  )}
+                </h1>
+              </div>
+
+              {/* Line 2 — crimson-tinted card, gold text, fades in */}
+              {vLineIdx >= 1 && (
+                <div
+                  className="mf-fade-up"
+                  style={{
+                    background:     'rgba(109,0,26,0.48)',   // softer than before
+                    backdropFilter: 'blur(10px)',
+                    border:         `1px solid rgba(229,196,148,0.18)`,
+                    borderRadius:   '14px',
+                    padding:        '9px 20px',
+                    maxWidth:       '74%',
+                  }}
+                >
+                  <p
+                    style={{
+                      fontSize:      'clamp(0.6rem, 1vw, 0.9rem)',
+                      color:         GOLD_MUTED,
+                      letterSpacing: '0.17em',
+                      lineHeight:    1.75,
+                      fontWeight:    300,
+                    }}
+                  >
+                    {vText}
+                    {vText.length < VIDEO_LINES[1].length && (
+                      <Cursor color={GOLD_MUTED} />
+                    )}
+                  </p>
+                </div>
+              )}
+
+              {/* Scroll prompt */}
+              <div
+                className="absolute bottom-5 flex flex-col items-center gap-2"
+                style={{ opacity: 0.42 }}
+              >
+                <span
+                  style={{
+                    fontSize:      '0.5rem',
+                    color:         GOLD_MUTED,
+                    letterSpacing: '0.36em',
+                    textTransform: 'uppercase',
+                  }}
+                >
+                  Scroll
+                </span>
+                <svg
+                  className="animate-bounce"
+                  width="10"
+                  height="10"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke={GOLD_MUTED}
+                  strokeWidth={2.5}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+                </svg>
+              </div>
+            </div>
+
+            {/* Video */}
+            <video
+              autoPlay
+              muted
+              loop
+              playsInline
+              className="w-full h-full object-cover scale-105"
+              src="/YTDown_YouTube_Luxury-Hotel-Video-Reel-2023_Media_cdKx1Zv3YKs_001_1080p.mp4"
+            />
+          </div>
+
+        </div>
       </div>
-    </div>
+    </>
   );
 }

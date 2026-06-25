@@ -1,17 +1,36 @@
-// Path: prisma/schema.prisma
-generator client {
-  provider   = "prisma-client-js"
-  engineType = "library"
-}
-
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
 }
 
 model User {
-  id        String   @id @default(uuid())
-  name      String   @unique
-  email     String?  
-  pin       String   
-  createdAt DateTime @default(now())
+  id             Int             @id @default(autoincrement())
+  name           String
+  email          String          @unique
+  password       String
+  createdAt      DateTime        @default(now())
+  amenities      UserAmenity[]
+  paymentDetails PaymentDetail[]
+}
+
+model UserAmenity {
+  id          Int      @id @default(autoincrement())
+  userEmail   String
+  amenityName String
+  createdAt   DateTime @default(now())
+  user        User     @relation(fields: [userEmail], references: [email], onDelete: Cascade)
+}
+
+model PaymentDetail {
+  id               Int      @id @default(autoincrement())
+  userEmail        String
+  stripeCustomerId String
+  lastFourDigits   String
+  cardBrand        String
+  createdAt        DateTime @default(now())
+  user             User     @relation(fields: [userEmail], references: [email], onDelete: Cascade)
 }

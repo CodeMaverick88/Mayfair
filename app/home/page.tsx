@@ -22,9 +22,9 @@ export default function HomePage() {
       <HeroSection />
 
       {/* STAGE 2: ARCHITECTURAL DESCRIPTION & HORIZONTAL CONTINUUM */}
-      <div className="relative z-30 w-full bg-black">
+      {/* <div className="relative z-30 w-full bg-black">
         <BodySection />
-      </div>
+      </div> */}
 
       {/* STAGE 3: INTERACTIVE EXPANSION & CURATED EXPERIENCE SUITE */}
       {/* Changed bg-[#FAF9F5] to bg-black to ensure seamless transition to the dark footer */}
@@ -32,8 +32,7 @@ export default function HomePage() {
         <ExperiencesSection />
       </div>
 
-      {/* 
-          Note: The Footer is placed in layout.tsx to be global. 
+      {/* Note: The Footer is placed in layout.tsx to be global. 
           If you want it ONLY on the home page, you can move it here 
           from layout.tsx.
       */}

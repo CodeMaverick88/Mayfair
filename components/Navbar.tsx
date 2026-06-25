@@ -9,6 +9,7 @@ export default function Navbar() {
   
   const [isScrolled, setIsScrolled] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [clientName, setClientName] = useState('');
 
   // Clean navigation links with MEISON completely removed
   const navLinks = [
@@ -20,6 +21,12 @@ export default function Navbar() {
   ];
 
   useEffect(() => {
+    // Logic to grab only the first name
+    const storedName = localStorage.getItem('mayfair_user_name');
+    if (storedName) {
+      setClientName(storedName.split(' ')[0].toUpperCase());
+    }
+
     const handleScroll = () => {
       if (window.scrollY > 15) {
         setIsScrolled(true);
@@ -31,6 +38,11 @@ export default function Navbar() {
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
+
+  const handleLogOut = () => {
+    localStorage.removeItem('mayfair_user_name');
+    router.push('/');
+  };
 
   if (pathname === '/' || pathname === '/login') {
     return null;
@@ -45,46 +57,58 @@ export default function Navbar() {
     <>
       {/* GLOBAL BACKGROUND GLASS NAVIGATION BAR */}
       <nav
-        className={`fixed top-0 inset-x-0 z-40 w-full transition-all duration-500 ease-in-out ${
+        className={`sticky top-0 inset-x-0 z-[99] w-full transition-all duration-500 ease-in-out ${
           isScrolled
-            ? 'bg-black/20 backdrop-blur-xl border-b border-white/[0.06] shadow-[0_8px_32px_0_rgba(0,0,0,0.3)] py-3 sm:py-4'
+            ? 'bg-neutral-950/80 backdrop-blur-xl border-b border-white/[0.06] shadow-[0_8px_32px_0_rgba(0,0,0,0.5)] py-3 sm:py-4'
             : 'bg-transparent border-b border-transparent py-5 sm:py-6'
         }`}
       >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between relative">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between relative gap-2">
           
-          {/* LEFT AREA: HAMBURGER TRIGGER ONLY */}
-          <div className="flex items-center z-10">
+          {/* LEFT AREA: HAMBURGER AND GREETING */}
+          <div className="flex items-center z-10 gap-2 sm:gap-4 flex-shrink-0">
             <button
               type="button"
               onClick={() => setIsDrawerOpen(true)}
-              className="flex flex-col items-start gap-1.5 p-2.5 rounded-xl bg-white/[0.01] hover:bg-white/[0.06] border border-white/[0.04] hover:border-white/10 transition-all duration-300 focus:outline-none group"
+              className="flex flex-col items-start gap-1.5 p-2 sm:p-2.5 rounded-xl bg-white/[0.01] hover:bg-white/[0.06] border border-white/[0.04] hover:border-white/10 transition-all duration-300 focus:outline-none group"
               aria-label="Open Navigation Drawer"
             >
               <span className="w-5 h-0.5 bg-white transition-all duration-300 group-hover:w-6" />
               <span className="w-4 h-0.5 bg-neutral-300 transition-all duration-300 group-hover:w-6" />
               <span className="w-5 h-0.5 bg-white transition-all duration-300" />
             </button>
+            
+            {clientName && (
+              <div className="text-[10px] font-bold tracking-widest text-neutral-400 uppercase hidden md:block">
+                👋 HI, {clientName}
+              </div>
+            )}
           </div>
 
           {/* CENTER AREA: BRAND SIGNATURE */}
-          <div className="absolute inset-x-0 flex items-center justify-center pointer-events-none">
+          <div className="sm:absolute sm:inset-x-0 flex items-center justify-center pointer-events-none flex-grow sm:flex-grow-0">
             <h1 
-              className="text-xl sm:text-2xl font-serif font-bold tracking-[0.25em] text-white uppercase select-none drop-shadow-md pointer-events-auto cursor-pointer transition-opacity hover:opacity-80" 
+              className="text-lg sm:text-2xl font-serif font-bold tracking-[0.15em] sm:tracking-[0.25em] text-white uppercase select-none drop-shadow-md pointer-events-auto cursor-pointer transition-opacity hover:opacity-80 text-center" 
               onClick={() => handleLinkClick('/home')}
             >
               Mayfair
             </h1>
           </div>
 
-          {/* RIGHT AREA: BOOK NOW CTA BUTTON */}
-          <div className="z-10">
+          {/* RIGHT AREA: BOOK NOW AND LOGOUT */}
+          <div className="z-10 flex items-center gap-2 sm:gap-3 flex-shrink-0">
             <button
               type="button"
               onClick={() => handleLinkClick('/bookings')}
-              className="relative px-4 sm:px-5 py-2 rounded-xl text-xs font-bold tracking-widest uppercase text-white bg-[#6D001A]/80 hover:bg-[#8A0022] border border-white/10 shadow-[0_4px_20px_rgba(109,0,26,0.2)] hover:shadow-[0_4px_25px_rgba(138,0,34,0.3)] transition-all duration-300 transform hover:-translate-y-0.5 active:translate-y-0 focus:outline-none backdrop-blur-md"
+              className="relative px-3 sm:px-5 py-2 rounded-xl text-[10px] sm:text-xs font-bold tracking-widest uppercase text-white bg-[#6D001A]/80 hover:bg-[#8A0022] border border-white/10 shadow-[0_4px_20px_rgba(109,0,26,0.2)] transition-all duration-300 transform hover:-translate-y-0.5 focus:outline-none backdrop-blur-md whitespace-nowrap"
             >
               Book Now
+            </button>
+            <button
+              onClick={handleLogOut}
+              className="text-[9px] sm:text-[10px] font-bold tracking-widest uppercase text-neutral-500 hover:text-white transition-colors whitespace-nowrap"
+            >
+              Log Out
             </button>
           </div>
         </div>
@@ -92,7 +116,7 @@ export default function Navbar() {
 
       {/* SLIDE-OUT MOBILE/GLOBAL PREMIUM GLASS DRAWER OVERLAY */}
       <div 
-        className={`fixed inset-0 z-50 transition-all duration-500 ease-in-out ${
+        className={`fixed inset-0 z-[100] transition-all duration-500 ease-in-out ${
           isDrawerOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
         }`}
       >
@@ -108,7 +132,9 @@ export default function Navbar() {
         >
           <div>
             <div className="flex items-center justify-between pb-6 border-b border-white/10 mb-8">
-              <span className="font-serif text-lg font-bold tracking-widest text-neutral-300 uppercase">Navigation</span>
+              <span className="font-serif text-lg font-bold tracking-widest text-neutral-300 uppercase">
+                {clientName ? `Hello, ${clientName}` : 'Navigation'}
+              </span>
               <button
                 type="button"
                 onClick={() => setIsDrawerOpen(false)}

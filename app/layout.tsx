@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Navbar from "@/components/Navbar";
-import Footer from "@/components/Footer"; // Importing the new Footer
+import Footer from "@/components/Footer"; // use your cinematic Footer
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -28,11 +28,9 @@ export default function RootLayout({
     <html
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased selection:bg-[#6D001A] selection:text-white`}
-      style={{ backgroundColor: "#000000" }}
     >
-      <body className="min-h-full flex flex-col bg-[#000000] text-white">
-        
-        {/* Global Premium Glass Navigation - Managed automatically across routes */}
+      <body className="min-h-full flex flex-col bg-black text-white">
+        {/* Global Premium Glass Navigation */}
         <Navbar />
 
         {/* Main Application Content Area */}
@@ -40,9 +38,8 @@ export default function RootLayout({
           {children}
         </main>
 
-        {/* Global Footer - Appears across all pages */}
+        {/* Global Footer */}
         <Footer />
-        
       </body>
     </html>
   );
